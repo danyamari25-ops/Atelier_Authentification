@@ -1,36 +1,65 @@
 name: Industrialisation continue sur le serveur Alwaysdata
-on: push
+
+on:
+  push:
+    branches: [ "main" ] # Vérifiez si votre branche s'appelle 'main' ou 'master'
+
 jobs:
-  Connexion:
+  # Note : J'ai fusionné la connexion et la copie pour plus d'efficacité,
+  # car le premier job "Connexion" ne faisait rien de persistant.
+  Deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Connexion SSH avec le serveur
+      - name: Déploiement et Configuration Sécurité
         uses: appleboy/ssh-action@master
         with:
           host: "ssh-${{ secrets.USERNAME }}.alwaysdata.net"
           username: ${{ secrets.USERNAME }}
           password: ${{ secrets.PASSWORD }}
+          # On rend le secret accessible dans le script via une variable d'environnement
+          envs: HTPASSWD_CONTENT
           script: |
-            cd $HOME/www/
-  Copy:
-    needs: Connexion
-    runs-on: ubuntu-latest
-    steps:
-      - name: Connexion SSH avec le serveur
-        uses: appleboy/ssh-action@master
-        with:
-          host: "ssh-${{ secrets.USERNAME }}.alwaysdata.net"
-          username: ${{ secrets.USERNAME }}
-          password: ${{ secrets.PASSWORD }}
-          script: |
-            last_directory=$(basename ${{ runner.workspace }})
-            cd $HOME/
-            git clone https://github.com/${{ github.repository }}.git
-            # Vérifier si le répertoire de destination existe
-            if [ "$(ls -A ./www)" ]; then
-              rsync -r --delete ./$last_directory/ ./www
-              rm -rf ./$last_directory
+            # 1. Définition des variables
+            REPO_URL="https://github.com/${{ github.repository }}.git"
+            TARGET_DIR="$HOME/www"
+            CLONE_DIR="$HOME/clone_temp"
+
+            # 2. Nettoyage et Clonage propre
+            rm -rf $CLONE_DIR
+            git clone $REPO_URL $CLONE_DIR
+
+            # 3. Synchronisation (Copie des fichiers vers www)
+            # On s'assure que le dossier www existe
+            mkdir -p $TARGET_DIR
+           
+            if [ -d "$CLONE_DIR" ]; then
+              # On copie le contenu du clone vers www
+              rsync -r --delete --exclude '.git' $CLONE_DIR/ $TARGET_DIR/
+              rm -rf $CLONE_DIR
+              echo "✅ Site mis à jour avec succès."
             else
-              echo "Le répertoire flask de destination sur votre serveur n'existe pas"
+              echo "❌ Erreur : Le clonage a échoué."
               exit 1
             fi
+
+            # --- PARTIE EXERCICE 3 : GESTION DU .HTPASSWD ---
+           
+            echo "🔒 Configuration de la sécurité (Basic Auth)..."
+           
+            # Création du dossier spécifique atelier1
+            mkdir -p $TARGET_DIR/atelier1
+           
+            # Création du fichier .htpasswd à partir du SECRET GitHub
+            # La variable $HTPASSWD_CONTENT est injectée automatiquement par l'action
+            echo "${{ secrets.HTPASSWD_CONTENT }}" > $TARGET_DIR/atelier1/.htpasswd
+           
+            # Vérification (optionnelle)
+            if [ -f "$TARGET_DIR/atelier1/.htpasswd" ]; then
+                echo "✅ Fichier .htpasswd créé avec succès."
+            else
+                echo "❌ Erreur lors de la création du fichier .htpasswd"
+                exit 1
+            fi
+        env:
+          # C'est ici qu'on lie le Secret GitHub à la variable utilisée dans le script ci-dessus
+          HTPASSWD_CONTENT: ${{ secrets.HTPASSWD_CONTENT }}
