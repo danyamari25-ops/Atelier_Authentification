@@ -1,0 +1,5 @@
+AuthName "Acces Restreint"
+AuthType Basic
+
+AuthUserFile /home/projetisep/www/atelier1/.htpasswd
+Require valid-user
