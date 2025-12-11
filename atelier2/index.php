@@ -2,13 +2,16 @@
 // Démarrer une session utilisateur qui sera en mesure de pouvoir gérer les Cookies
 session_start();
 
-// Vérifier si l'utilisateur est déjà en possession d'un cookie valide (cookie authToken ayant le contenu 12345)
-// Si l'utilisateur possède déjà ce cookie, il sera redirigé automatiquement vers la page home.php
-// Dans le cas contraire il devra s'identifier.
-if (isset($_COOKIE['authToken']) && $_COOKIE['authToken'] === '12345') {
+// --- MODIFICATION POUR L'EXERCICE 2 : Vérification du jeton dynamique ---
+// 1. Définir le jeton valide attendu par le serveur (récupéré de la session)
+$valid_token = isset($_SESSION['active_token']) ? $_SESSION['active_token'] : null;
+
+// 2. Vérifier si le cookie existe ET s'il correspond au jeton actif stocké.
+if (isset($_COOKIE['authToken']) && $_COOKIE['authToken'] === $valid_token && $valid_token !== null) {
     header('Location: page_admin.php');
     exit();
 }
+// --------------------------------------------------------------------------
 
 // Gérer la soumission du formulaire
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -16,13 +19,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'];
 
     // Vérification simple du username et de son password.
-    // Si ok alors on initialise le cookie sur le poste de l'utilisateur 
     if ($username === 'admin' && $password === 'secret') {
         
-        setcookie('authToken', $token, time() + 60, '/', '', false, true);
-       
-        header('Location: page_admin.php'); // L'utilisateur est dirigé vers la page home.php
-        exit();
+        // --- MODIFICATION POUR L'EXERCICE 2 : Génération du jeton dynamique ---
+        // Génère un jeton unique (32 caractères hexadécimaux)
+        try {
+            $new_token = bin2hex(random_bytes(16));
+        } catch (Exception $e) {
+            $error = "Erreur de génération de jeton : " . $e->getMessage();
+        }
+
+        if (!isset($error)) {
+            // 1. Initialiser le cookie sur le poste de l'utilisateur avec le nouveau jeton unique.
+            //    Expiration de 60 secondes (Exercice 1)
+            setcookie('authToken', $new_token, time() + 60, '/', '', false, true); 
+
+            // 2. Stocker ce jeton dans la session pour la vérification future (côté serveur)
+            $_SESSION['active_token'] = $new_token;
+
+            header('Location: page_admin.php'); 
+            exit();
+        }
+        // --------------------------------------------------------------------------
+        
     } else {
         $error = "Nom d'utilisateur ou mot de passe incorrect.";
     }
@@ -39,6 +58,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <body>
     <h1>Atelier authentification par Cookie</h1>
     <h3>La page <a href="page_admin.php">page_admin.php</a> est inaccéssible tant que vous ne vous serez pas connecté avec le login 'admin' et mot de passe 'secret'</h3>
+    <?php if (isset($error)): ?>
+        <p style="color: red;"><?php echo $error; ?></p>
+    <?php endif; ?>
     <form method="POST" action="">
         <label for="username">Nom d'utilisateur :</label>
         <input type="text" id="username" name="username" required>
