@@ -2,7 +2,7 @@
 // Démarrer une session utilisateur qui sera en mesure de pouvoir gérer les Cookies
 session_start();
 
-// --- MODIFICATION POUR L'EXERCICE 2 : Vérification du jeton dynamique ---
+// --- MODIFICATIONS POUR L'EXERCICE 2 : Jeton Dynamique ---
 // 1. Définir le jeton valide attendu par le serveur (récupéré de la session)
 $valid_token = isset($_SESSION['active_token']) ? $_SESSION['active_token'] : null;
 
@@ -11,7 +11,7 @@ if (isset($_COOKIE['authToken']) && $_COOKIE['authToken'] === $valid_token && $v
     header('Location: page_admin.php');
     exit();
 }
-// --------------------------------------------------------------------------
+// ----------------------------------------------------------
 
 // Gérer la soumission du formulaire
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -21,12 +21,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Vérification simple du username et de son password.
     if ($username === 'admin' && $password === 'secret') {
         
-        // --- MODIFICATION POUR L'EXERCICE 2 : Génération du jeton dynamique ---
-        // Génère un jeton unique (32 caractères hexadécimaux)
+        // --- MODIFICATIONS POUR L'EXERCICE 2 : Génération du jeton dynamique ---
+        // Génère un jeton unique et sécurisé
         try {
             $new_token = bin2hex(random_bytes(16));
         } catch (Exception $e) {
-            $error = "Erreur de génération de jeton : " . $e->getMessage();
+            $error = "Erreur de génération de jeton.";
         }
 
         if (!isset($error)) {
@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             //    Expiration de 60 secondes (Exercice 1)
             setcookie('authToken', $new_token, time() + 60, '/', '', false, true); 
 
-            // 2. Stocker ce jeton dans la session pour la vérification future (côté serveur)
+            // 2. Stocker ce jeton dans la session pour la vérification future
             $_SESSION['active_token'] = $new_token;
 
             header('Location: page_admin.php'); 
